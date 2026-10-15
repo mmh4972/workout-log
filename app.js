@@ -372,6 +372,82 @@ $('#wipeAll').addEventListener('click', () => {
   db.entries = []; persist(); renderBackup(); toast('已清除');
 });
 
+// ---------- 組間休息倒數 ----------
+// 用結束時間計算剩餘秒數，切到別的 App 再回來也準確
+const timer = { end: 0, total: 0, h: null, wake: null, done: false };
+let actx = null;
+function unlockAudio() {
+  // iPhone 必須在按按鈕當下啟動聲音，之後才能自動發出叮聲
+  try {
+    if (navigator.audioSession) navigator.audioSession.type = 'transient';
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    const b = actx.createBuffer(1, 1, 22050), src = actx.createBufferSource();
+    src.buffer = b; src.connect(actx.destination); src.start(0);
+  } catch (e) {}
+}
+function ding() {
+  if (!actx) return;
+  if (actx.state === 'suspended') actx.resume();
+  const t0 = actx.currentTime + 0.05;
+  // 叮、叮、叮：三聲鈴聲，每聲疊兩個頻率聽起來比較像鈴
+  for (let k = 0; k < 3; k++) {
+    for (const [f, g] of [[1318.5, 0.5], [2637, 0.15]]) {
+      const o = actx.createOscillator(), v = actx.createGain(), t = t0 + k * 0.45;
+      o.type = 'sine'; o.frequency.value = f;
+      v.gain.setValueAtTime(0, t); v.gain.linearRampToValueAtTime(g, t + 0.01);
+      v.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
+      o.connect(v); v.connect(actx.destination); o.start(t); o.stop(t + 1.25);
+    }
+  }
+  if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+}
+async function keepAwake(on) {
+  try {
+    if (on && 'wakeLock' in navigator && !timer.wake) {
+      timer.wake = await navigator.wakeLock.request('screen');
+      timer.wake.addEventListener('release', () => { timer.wake = null; });
+    } else if (!on && timer.wake) { await timer.wake.release(); timer.wake = null; }
+  } catch (e) {}
+}
+const mmss = (sec) => `${Math.floor(sec / 60)}:${pad(sec % 60)}`;
+function tick() {
+  const left = Math.max(0, Math.ceil((timer.end - Date.now()) / 1000));
+  $('#timerLeft').textContent = left ? mmss(left) : '時間到！';
+  $('#timerBar').style.width = (left / timer.total) * 100 + '%';
+  if (!left && !timer.done) {
+    timer.done = true; clearInterval(timer.h);
+    $('#timerCard').classList.add('done');
+    $('#timerAdd').hidden = true; $('#timerStop').textContent = '好，做下一組';
+    ding(); keepAwake(false);
+  }
+}
+function startTimer(sec) {
+  unlockAudio();
+  clearInterval(timer.h);
+  Object.assign(timer, { end: Date.now() + sec * 1000, total: sec, done: false });
+  $('#timerCard').classList.remove('done');
+  $('#timerIdle').hidden = true; $('#timerRun').hidden = false;
+  $('#timerAdd').hidden = false; $('#timerStop').textContent = '停止';
+  tick(); timer.h = setInterval(tick, 250);
+  keepAwake(true);
+}
+function stopTimer() {
+  clearInterval(timer.h); timer.end = 0;
+  $('#timerCard').classList.remove('done');
+  $('#timerIdle').hidden = false; $('#timerRun').hidden = true;
+  keepAwake(false);
+}
+$('#timerIdle').addEventListener('click', (e) => { const b = e.target.closest('[data-sec]'); if (b) startTimer(+b.dataset.sec); });
+$('#timerStop').addEventListener('click', stopTimer);
+$('#timerAdd').addEventListener('click', () => { unlockAudio(); timer.end += 15000; timer.total += 15; tick(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || !timer.end) return;
+  // 回到畫面時：螢幕恆亮要重新申請；若期間已到時間，立刻叮
+  if (!timer.done) keepAwake(true);
+  tick();
+});
+
 // ---------- 啟動 ----------
 resetForm();
 renderHeader();
