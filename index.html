@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>重訓紀錄</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="重訓紀錄">
+<meta name="theme-color" content="#f6f5f2" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181b" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root {
+  --bg: #f6f5f2; --card: #ffffff; --ink: #1d1f22; --muted: #6b7078; --line: #e3e1dc;
+  --accent: #d2551f; --accent-ink: #ffffff; --accent-soft: #fbe7dd; --danger: #c23030;
+  --chip: #eeece7; --input: #f8f7f4;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16181b; --card: #202327; --ink: #eceae6; --muted: #9a9fa6; --line: #2f3338;
+    --accent: #f0703a; --accent-ink: #1a0d06; --accent-soft: #3a2519; --danger: #ff6b6b;
+    --chip: #2a2e33; --input: #181a1d;
+  }
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+  font-size: 16px; line-height: 1.45;
+  padding: env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom));
+}
+header { padding: 14px 16px 6px; display: flex; align-items: baseline; justify-content: space-between; }
+header h1 { font-size: 22px; margin: 0; letter-spacing: .02em; }
+header .sub { color: var(--muted); font-size: 13px; }
+main { padding: 0 16px; max-width: 560px; margin: 0 auto; }
+section[hidden] { display: none; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 10px 0; }
+label.lbl { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+input, select, textarea {
+  font: inherit; color: var(--ink); background: var(--input); border: 1px solid var(--line);
+  border-radius: 10px; padding: 10px; width: 100%; min-height: 44px;
+}
+input[type=date] { -webkit-appearance: none; appearance: none; }
+input:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+button { font: inherit; cursor: pointer; border: none; border-radius: 10px; min-height: 44px; padding: 0 14px; }
+.btn { background: var(--chip); color: var(--ink); }
+.btn-primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+.btn-block { width: 100%; }
+.row { display: flex; gap: 8px; align-items: center; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { background: var(--chip); color: var(--ink); border-radius: 999px; padding: 0 18px; min-height: 42px; font-size: 16px; }
+.chip.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.sets-head, .set-row { display: grid; grid-template-columns: 26px 1fr 1fr 1fr 40px; gap: 6px; align-items: center; }
+.sets-head { font-size: 12px; color: var(--muted); padding: 0 0 4px; }
+.sets-head span { text-align: center; }
+.set-row { margin-bottom: 6px; }
+.set-row .n { color: var(--muted); font-size: 13px; text-align: center; }
+.set-row input { text-align: center; padding: 8px 4px; font-size: 18px; }
+.set-row .del { background: transparent; color: var(--muted); font-size: 22px; padding: 0; min-height: 40px; }
+.total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; }
+.total b { font-size: 24px; font-variant-numeric: tabular-nums; }
+.prev { font-size: 14px; color: var(--muted); }
+.prev .t { color: var(--ink); }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.day { margin: 16px 0 6px; font-size: 14px; color: var(--muted); display: flex; justify-content: space-between; }
+.entry { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-start; }
+.entry .acts { flex-basis: 100%; }
+.entry .part { flex: none; min-width: 44px; text-align: center; font-weight: 600; background: var(--accent-soft); color: var(--accent); border-radius: 8px; padding: 4px 6px; }
+.entry .body { flex: 1; min-width: 0; font-size: 14px; }
+.entry .vol { flex: none; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.entry .vol small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.setline { color: var(--muted); }
+.setline span { color: var(--ink); white-space: nowrap; }
+.seg { display: flex; background: var(--chip); border-radius: 10px; padding: 3px; gap: 3px; }
+.seg button { flex: 1; background: transparent; color: var(--ink); min-height: 36px; font-size: 14px; }
+.seg button.on { background: var(--card); font-weight: 600; box-shadow: 0 1px 2px rgba(0,0,0,.15); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { padding: 8px 4px; text-align: right; border-bottom: 1px solid var(--line); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--muted); font-weight: 500; font-size: 12px; }
+tr.yr td { font-weight: 700; background: var(--accent-soft); }
+tr.yr td:first-child { border-radius: 8px 0 0 8px; } tr.yr td:last-child { border-radius: 0 8px 8px 0; }
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 120px; margin-top: 8px; }
+.bars .b { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+.bars .b i { display: block; width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 1px; }
+.bars .b span { font-size: 10px; color: var(--muted); margin-top: 3px; }
+nav.tabs {
+  position: fixed; left: 0; right: 0; bottom: 0; display: flex; background: var(--card);
+  border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); z-index: 10;
+}
+nav.tabs button { flex: 1; background: transparent; color: var(--muted); border-radius: 0; min-height: 60px; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+nav.tabs button svg { width: 24px; height: 24px; }
+nav.tabs button.on { color: var(--accent); font-weight: 600; }
+#toast {
+  position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
+  background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; opacity: 0; transition: .25s; pointer-events: none; z-index: 20; font-size: 15px; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.banner { background: var(--accent-soft); color: var(--ink); border-radius: 12px; padding: 10px 12px; font-size: 14px; margin: 8px 0; display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+.banner button { min-height: 36px; font-size: 14px; }
+.empty { text-align: center; color: var(--muted); padding: 40px 0; }
+.stack > * + * { margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">記錄</h1>
+  <span class="sub" id="headSub"></span>
+</header>
+<main>
+  <div id="backupBanner" class="banner" hidden>
+    <span id="backupMsg"></span>
+    <button class="btn-primary" data-go="backup">去備份</button>
+  </div>
+
+  <!-- 記錄 -->
+  <section id="tab-log">
+    <div class="card">
+      <div class="row">
+        <div style="flex:1">
+          <label class="lbl" for="fDate">日期</label>
+          <input type="date" id="fDate">
+        </div>
+      </div>
+      <label class="lbl" style="margin-top:12px">部位</label>
+      <div class="chips" id="partChips"></div>
+    </div>
+
+    <div class="card" id="prevCard" hidden>
+      <div class="row" style="justify-content:space-between">
+        <div class="prev" id="prevText"></div>
+        <button class="btn" id="copyPrev" style="flex:none">沿用</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="sets-head"><span></span><span>重量 kg</span><span>次數</span><span>組數</span><span></span></div>
+      <div id="setRows"></div>
+      <button class="btn btn-block" id="addSet">＋ 加一列</button>
+      <div class="total"><span class="muted">總共</span><b><span id="liveTotal">0</span> kg</b></div>
+    </div>
+
+    <div class="card">
+      <label class="lbl" for="fNote">備註（可不填）</label>
+      <input id="fNote" placeholder="例如：器材、感覺">
+    </div>
+
+    <div class="row" style="margin:12px 0 20px">
+      <button class="btn" id="cancelEdit" hidden style="flex:1">取消編輯</button>
+      <button class="btn-primary" id="saveBtn" style="flex:2">儲存</button>
+    </div>
+  </section>
+
+  <!-- 歷史 -->
+  <section id="tab-history" hidden>
+    <div class="chips" id="histFilter" style="margin:8px 0"></div>
+    <div id="histList"></div>
+    <button class="btn btn-block" id="histMore" hidden style="margin:12px 0">顯示更多</button>
+  </section>
+
+  <!-- 統計 -->
+  <section id="tab-stats" hidden>
+    <div class="seg" id="statMode" style="margin-top:8px">
+      <button data-m="count" class="on">次數</button>
+      <button data-m="avg">平均</button>
+      <button data-m="sum">總量</button>
+    </div>
+    <p class="small muted" id="statHint" style="margin:8px 2px"></p>
+    <div class="card" id="chartCard">
+      <div class="row" style="justify-content:space-between">
+        <b id="chartTitle"></b>
+        <select id="chartYear" style="width:auto; min-height:36px; padding:4px 8px"></select>
+      </div>
+      <div class="bars" id="bars"></div>
+    </div>
+    <div class="card" style="padding:8px 10px; overflow-x:auto">
+      <table id="statTable"></table>
+    </div>
+  </section>
+
+  <!-- 備份 -->
+  <section id="tab-backup" hidden>
+    <div class="card stack">
+      <b>備份</b>
+      <p class="small muted" style="margin:0">紀錄只存在這支手機裡。請定期匯出備份，存到「檔案」App 的 iCloud 雲碟，換手機時再匯入。</p>
+      <p class="small" id="backupInfo" style="margin:0"></p>
+      <button class="btn-primary btn-block" id="exportJson">匯出備份檔（.json）</button>
+      <button class="btn btn-block" id="exportCsv">匯出成 Excel 可開的檔（.csv）</button>
+    </div>
+    <div class="card stack">
+      <b>匯入</b>
+      <p class="small muted" style="margin:0">選擇之前匯出的備份檔，或「重訓歷史.json」舊資料檔。已有的紀錄不會重複。</p>
+      <input type="file" id="importFile" accept=".json,application/json" hidden>
+      <button class="btn btn-block" id="importBtn">選擇檔案匯入</button>
+    </div>
+    <div class="card stack">
+      <b>部位</b>
+      <div class="chips" id="partManage"></div>
+      <div class="row">
+        <input id="newPart" placeholder="新增部位，例如：三頭">
+        <button class="btn" id="addPart" style="flex:none">新增</button>
+      </div>
+    </div>
+    <div class="card stack">
+      <b>資料</b>
+      <p class="small muted" style="margin:0" id="dataInfo"></p>
+      <button class="btn-danger btn-block" id="wipeAll">清除這支手機上的所有紀錄</button>
+    </div>
+  </section>
+</main>
+
+<nav class="tabs">
+  <button data-go="log" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>記錄</button>
+  <button data-go="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>歷史</button>
+  <button data-go="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>統計</button>
+  <button data-go="backup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>備份</button>
+</nav>
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
