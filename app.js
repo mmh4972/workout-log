@@ -291,6 +291,7 @@ $('#chartYear').addEventListener('change', () => renderChart(aggregate(), $('#ch
 
 // ---------- 備份 ----------
 function renderBackup() {
+  $('#appVer').textContent = window.APP_VERSION || '';
   renderHeader();
   // 備份提醒只放在這一頁：超過 14 天沒備份就用醒目底色
   const days = db.lastBackup ? Math.floor((Date.now() - db.lastBackup) / 864e5) : null;
@@ -425,13 +426,13 @@ function tick() {
   }
 }
 function startTimer(sec) {
-  playFor(sec);
   clearInterval(timer.h);
   Object.assign(timer, { end: Date.now() + sec * 1000, total: sec, done: false });
   $('#timerCard').classList.remove('done');
   $('#timerIdle').hidden = true; $('#timerRun').hidden = false;
   $('#timerAdd').hidden = false; $('#timerStop').textContent = '停止';
   tick(); timer.h = setInterval(tick, 250);
+  playFor(sec); // 先顯示倒數，聲音就算失敗也不影響倒數
 }
 function stopTimer() {
   clearInterval(timer.h); timer.end = 0; player.pause();

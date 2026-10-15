@@ -123,6 +123,7 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
   <span class="sub" id="headSub"></span>
 </header>
 <main>
+  <div id="errBox" class="banner" hidden style="background:var(--danger);color:#fff"></div>
 
   <!-- 記錄 -->
   <section id="tab-log">
@@ -232,6 +233,7 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
     <div class="card stack">
       <b>資料</b>
       <p class="small muted" style="margin:0" id="dataInfo"></p>
+      <p class="small muted" style="margin:0">網頁版本：<span id="appVer"></span></p>
       <button class="btn-danger btn-block" id="wipeAll">清除這支手機上的所有紀錄</button>
     </div>
   </section>
@@ -245,6 +247,15 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 </nav>
 <div id="toast"></div>
 
-<script src="app.js"></script>
+<script>
+// 版本號：改網頁時要和 sw.js 的 CACHE 一起改
+window.APP_VERSION = '7';
+// 程式出錯時直接顯示在畫面上，方便在手機上回報
+window.addEventListener('error', function (e) {
+  var d = document.getElementById('errBox');
+  if (d) { d.hidden = false; d.textContent = '程式出錯：' + (e.message || e) + '（版本 ' + window.APP_VERSION + '）'; }
+});
+</script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
