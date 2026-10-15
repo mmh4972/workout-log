@@ -359,7 +359,7 @@ $('#wipeAll').addEventListener('click', () => {
 // ---------- 組間休息倒數 ----------
 // 螢幕關掉後網頁會暫停，計時程式不會跑；但 iPhone 會繼續播放「媒體聲音」。
 // 所以按下按鈕時就播放一段「先安靜 N 秒、最後叮三聲」的音檔，交給系統播到最後。
-const timer = { end: 0, total: 0, h: null, done: false };
+const timer = { end: 0, total: 0, h: null };
 const player = new Audio();
 player.preload = 'auto';
 const RATE = 11025;
@@ -400,28 +400,23 @@ function playFor(sec) {
 const mmss = (sec) => `${Math.floor(sec / 60)}:${pad(sec % 60)}`;
 function tick() {
   const left = Math.max(0, Math.ceil((timer.end - Date.now()) / 1000));
-  $('#timerLeft').textContent = left ? mmss(left) : '時間到！';
+  // 時間到就回到兩個按鈕；叮聲由音檔自己播完，這裡不能停掉它
+  if (!left) return resetTimerUI();
+  $('#timerLeft').textContent = mmss(left);
   $('#timerBar').style.width = (left / timer.total) * 100 + '%';
-  if (!left && !timer.done) {
-    timer.done = true; clearInterval(timer.h);
-    $('#timerCard').classList.add('done');
-    $('#timerAdd').hidden = true; $('#timerStop').textContent = '好，做下一組';
-  }
 }
 function startTimer(sec) {
   clearInterval(timer.h);
-  Object.assign(timer, { end: Date.now() + sec * 1000, total: sec, done: false });
-  $('#timerCard').classList.remove('done');
+  Object.assign(timer, { end: Date.now() + sec * 1000, total: sec });
   $('#timerIdle').hidden = true; $('#timerRun').hidden = false;
-  $('#timerAdd').hidden = false; $('#timerStop').textContent = '停止';
   tick(); timer.h = setInterval(tick, 250);
   playFor(sec); // 先顯示倒數，聲音就算失敗也不影響倒數
 }
-function stopTimer() {
-  clearInterval(timer.h); timer.end = 0; player.pause();
-  $('#timerCard').classList.remove('done');
+function resetTimerUI() {
+  clearInterval(timer.h); timer.end = 0;
   $('#timerIdle').hidden = false; $('#timerRun').hidden = true;
 }
+function stopTimer() { resetTimerUI(); player.pause(); }
 $('#timerIdle').addEventListener('click', (e) => { const b = e.target.closest('[data-sec]'); if (b) startTimer(+b.dataset.sec); });
 $('#timerStop').addEventListener('click', stopTimer);
 $('#timerAdd').addEventListener('click', () => {
