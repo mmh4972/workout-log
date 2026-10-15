@@ -27,6 +27,7 @@
   }
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
@@ -97,7 +98,6 @@ nav.tabs {
 nav.tabs button { flex: 1; background: transparent; color: var(--muted); border-radius: 0; min-height: 60px; font-size: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
 nav.tabs button svg { width: 24px; height: 24px; }
 nav.tabs button.on { color: var(--accent); font-weight: 600; }
-.timer [hidden] { display: none !important; }
 .timer-idle { display: flex; flex-direction: column; gap: 8px; }
 .timer-btn { flex: 1; min-height: 56px; font-size: 20px; }
 .timer-left { font-size: 56px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.1; }
@@ -155,23 +155,11 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
       <div class="chips" id="partChips"></div>
     </div>
 
-    <div class="card" id="prevCard" hidden>
-      <div class="row" style="justify-content:space-between">
-        <div class="prev" id="prevText"></div>
-        <button class="btn" id="copyPrev" style="flex:none">沿用</button>
-      </div>
-    </div>
-
     <div class="card">
       <div class="sets-head"><span></span><span>重量 kg</span><span>次數</span><span>組數</span><span></span></div>
       <div id="setRows"></div>
       <button class="btn btn-block" id="addSet">＋ 加一列</button>
       <div class="total"><span class="muted">總共</span><b><span id="liveTotal">0</span> kg</b></div>
-    </div>
-
-    <div class="card">
-      <label class="lbl" for="fNote">備註（可不填）</label>
-      <input id="fNote" placeholder="例如：器材、感覺">
     </div>
 
     <div class="row" style="margin:12px 0 20px">
@@ -249,13 +237,13 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 
 <script>
 // 版本號：改網頁時要和 sw.js 的 CACHE 一起改
-window.APP_VERSION = '7';
+window.APP_VERSION = '8';
 // 程式出錯時直接顯示在畫面上，方便在手機上回報
 window.addEventListener('error', function (e) {
   var d = document.getElementById('errBox');
   if (d) { d.hidden = false; d.textContent = '程式出錯：' + (e.message || e) + '（版本 ' + window.APP_VERSION + '）'; }
 });
 </script>
-<script src="app.js?v=7"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

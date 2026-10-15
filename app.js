@@ -63,7 +63,7 @@ function renderPartChips() {
 }
 $('#partChips').addEventListener('click', (e) => {
   const b = e.target.closest('[data-part]'); if (!b) return;
-  form.part = b.dataset.part; renderPartChips(); renderPrev();
+  form.part = b.dataset.part; renderPartChips();
 });
 
 function setRowHtml(s, i) {
@@ -108,29 +108,13 @@ $('#addSet').addEventListener('click', () => {
   rows[rows.length - 1].querySelector('input').focus();
 });
 
-function prevEntry() {
-  if (!form.part) return null;
-  return sorted().find((e) => e.part === form.part && e.id !== form.editing) || null;
-}
 function setsText(sets) {
   return sets.map((s) => `<span>${fmt(s.w)}×${s.r}×${s.s}</span>`).join('、');
 }
-function renderPrev() {
-  const p = prevEntry();
-  $('#prevCard').hidden = !p || !!form.editing;
-  if (!p) return;
-  $('#prevText').innerHTML = `上次${esc(p.part)}：${dayLabel(p.date)}<br><span class="t">${setsText(p.sets)}</span><br>總共 ${fmt(vol(p.sets))} kg`;
-}
-$('#copyPrev').addEventListener('click', () => {
-  const p = prevEntry(); if (!p) return;
-  writeSets(p.sets.map((s) => ({ w: s.w, r: s.r, s: s.s })));
-  toast('已帶入上次的重量');
-});
-
 function resetForm() {
   form = { part: null, editing: null };
-  $('#fDate').value = today(); $('#fNote').value = '';
-  writeSets([]); renderPartChips(); renderPrev();
+  $('#fDate').value = today();
+  writeSets([]); renderPartChips();
   $('#cancelEdit').hidden = true; $('#saveBtn').textContent = '儲存';
 }
 $('#cancelEdit').addEventListener('click', () => { resetForm(); go('history'); });
@@ -143,12 +127,11 @@ $('#saveBtn').addEventListener('click', () => {
     .filter((s) => s.w !== '' || s.r !== '' || s.s !== '')
     .map((s) => ({ w: parseFloat(s.w) || 0, r: parseFloat(s.r) || 0, s: parseFloat(s.s) || 1 }));
   if (!sets.length || vol(sets) === 0) return toast('請填重量、次數、組數');
-  const note = $('#fNote').value.trim();
   if (form.editing) {
     const e = db.entries.find((x) => x.id === form.editing);
-    Object.assign(e, { date, part: form.part, sets, note });
+    Object.assign(e, { date, part: form.part, sets });
   } else {
-    db.entries.push({ id: uid(), t: Date.now(), date, part: form.part, sets, note });
+    db.entries.push({ id: uid(), t: Date.now(), date, part: form.part, sets });
   }
   if (!persist()) return;
   const wasEditing = !!form.editing;
@@ -161,9 +144,9 @@ function editEntry(id) {
   const e = db.entries.find((x) => x.id === id); if (!e) return;
   form = { part: e.part, editing: id };
   if (!db.parts.includes(e.part)) { db.parts.push(e.part); persist(); }
-  $('#fDate').value = e.date; $('#fNote').value = e.note || '';
+  $('#fDate').value = e.date;
   writeSets(e.sets.map((s) => ({ ...s })));
-  renderPartChips(); renderPrev();
+  renderPartChips();
   $('#cancelEdit').hidden = false; $('#saveBtn').textContent = '儲存修改';
   go('log');
 }
