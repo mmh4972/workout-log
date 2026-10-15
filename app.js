@@ -52,10 +52,6 @@ document.addEventListener('click', (e) => { const b = e.target.closest('[data-go
 
 function renderHeader() {
   $('#headSub').textContent = `共 ${db.entries.length} 筆`;
-  const days = db.lastBackup ? Math.floor((Date.now() - db.lastBackup) / 864e5) : null;
-  const need = db.entries.length > 0 && (days === null || days >= 14);
-  $('#backupBanner').hidden = !need || tab === 'backup';
-  $('#backupMsg').textContent = days === null ? '還沒備份過' : `已 ${days} 天沒備份`;
 }
 
 // ---------- 記錄表單 ----------
@@ -296,9 +292,14 @@ $('#chartYear').addEventListener('change', () => renderChart(aggregate(), $('#ch
 // ---------- 備份 ----------
 function renderBackup() {
   renderHeader();
-  $('#backupInfo').textContent = db.lastBackup
-    ? `上次備份：${new Date(db.lastBackup).toLocaleString('zh-TW', { hour12: false })}`
+  // 備份提醒只放在這一頁：超過 14 天沒備份就用醒目底色
+  const days = db.lastBackup ? Math.floor((Date.now() - db.lastBackup) / 864e5) : null;
+  const info = $('#backupInfo');
+  info.textContent = db.lastBackup
+    ? `上次備份：${new Date(db.lastBackup).toLocaleString('zh-TW', { hour12: false })}（${days} 天前）`
     : '還沒備份過';
+  info.className = db.entries.length && (days === null || days >= 14) ? 'banner' : 'small';
+  info.style.margin = '0';
   const ds = db.entries.map((e) => e.date).sort();
   $('#dataInfo').textContent = ds.length ? `共 ${ds.length} 筆，從 ${ds[0]} 到 ${ds[ds.length - 1]}` : '目前沒有紀錄';
   $('#partManage').innerHTML = db.parts.map((p) =>

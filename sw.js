@@ -1,5 +1,5 @@
 // 離線快取：改了網頁檔案後，把版本號加一，手機才會抓到新版
-const CACHE = 'workout-log-v1';
+const CACHE = 'workout-log-v3';
 const FILES = ['./', 'index.html', 'app.js', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
