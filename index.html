@@ -222,6 +222,14 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
       <button class="btn btn-block" id="importBtn">選擇檔案匯入</button>
     </div>
     <div class="card stack">
+      <b>休息計時器</b>
+      <label class="row" style="justify-content:space-between; gap:12px">
+        <span class="small">按倒數按鈕時，同時啟動 iPhone 內建計時器（螢幕關著也會響）</span>
+        <input type="checkbox" id="useShortcut" style="width:28px; min-height:28px; flex:none">
+      </label>
+      <p class="small muted" style="margin:0">需要先在「捷徑」App 建好兩個捷徑，名稱要完全一樣：<b>休息90秒</b>、<b>休息2分鐘</b>。</p>
+    </div>
+    <div class="card stack">
       <b>部位</b>
       <div class="chips" id="partManage"></div>
       <div class="row">
