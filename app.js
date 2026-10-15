@@ -8,7 +8,7 @@ const TITLES = { log: '記錄', history: '歷史', stats: '統計', backup: '備
 function load() {
   try {
     const d = JSON.parse(localStorage.getItem(KEY));
-    if (d && Array.isArray(d.entries)) return Object.assign({ parts: DEFAULT_PARTS.slice(), lastBackup: null, useShortcut: false }, d);
+    if (d && Array.isArray(d.entries)) return Object.assign({ parts: DEFAULT_PARTS.slice(), lastBackup: null }, d);
   } catch (e) {}
   return { entries: [], parts: DEFAULT_PARTS.slice(), lastBackup: null };
 }
@@ -291,7 +291,6 @@ $('#chartYear').addEventListener('change', () => renderChart(aggregate(), $('#ch
 
 // ---------- 備份 ----------
 function renderBackup() {
-  $('#useShortcut').checked = !!db.useShortcut;
   renderHeader();
   // 備份提醒只放在這一頁：超過 14 天沒備份就用醒目底色
   const days = db.lastBackup ? Math.floor((Date.now() - db.lastBackup) / 864e5) : null;
@@ -357,7 +356,6 @@ $('#importFile').addEventListener('change', async (ev) => {
   }
   if (persist()) { renderBackup(); renderPartChips(); alert(`匯入完成：新增 ${added} 筆，略過 ${data.entries.length - added} 筆重複。`); }
 });
-$('#useShortcut').addEventListener('change', (e) => { db.useShortcut = e.target.checked; persist(); toast(db.useShortcut ? '已開啟 iPhone 計時器' : '已關閉 iPhone 計時器'); });
 $('#addPart').addEventListener('click', () => {
   const p = $('#newPart').value.trim();
   if (!p || db.parts.includes(p)) return;
@@ -421,23 +419,16 @@ function tick() {
     timer.done = true; clearInterval(timer.h);
     $('#timerCard').classList.add('done');
     $('#timerAdd').hidden = true; $('#timerStop').textContent = '好，做下一組';
-    if (!db.useShortcut) ding();
-    keepAwake(false);
+    ding(); keepAwake(false);
   }
 }
-// iPhone 捷徑名稱，要和「捷徑」App 裡的名稱完全一樣
-const SHORTCUTS = { 90: '休息90秒', 120: '休息2分鐘' };
 function startTimer(sec) {
   unlockAudio();
-  if (db.useShortcut && SHORTCUTS[sec]) {
-    // 交給 iPhone 內建計時器響鈴，這裡只顯示倒數，不重複叮
-    location.href = 'shortcuts://run-shortcut?name=' + encodeURIComponent(SHORTCUTS[sec]);
-  }
   clearInterval(timer.h);
   Object.assign(timer, { end: Date.now() + sec * 1000, total: sec, done: false });
   $('#timerCard').classList.remove('done');
   $('#timerIdle').hidden = true; $('#timerRun').hidden = false;
-  $('#timerAdd').hidden = db.useShortcut; // 系統計時器無法加時，避免兩邊時間對不上 $('#timerStop').textContent = '停止';
+  $('#timerAdd').hidden = false; $('#timerStop').textContent = '停止';
   tick(); timer.h = setInterval(tick, 250);
   keepAwake(true);
 }
