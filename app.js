@@ -373,41 +373,44 @@ $('#wipeAll').addEventListener('click', () => {
 });
 
 // ---------- 組間休息倒數 ----------
-// 用結束時間計算剩餘秒數，切到別的 App 再回來也準確
-const timer = { end: 0, total: 0, h: null, wake: null, done: false };
-let actx = null;
-function unlockAudio() {
-  // iPhone 必須在按按鈕當下啟動聲音，之後才能自動發出叮聲
-  try {
-    if (navigator.audioSession) navigator.audioSession.type = 'transient';
-    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
-    if (actx.state === 'suspended') actx.resume();
-    const b = actx.createBuffer(1, 1, 22050), src = actx.createBufferSource();
-    src.buffer = b; src.connect(actx.destination); src.start(0);
-  } catch (e) {}
-}
-function ding() {
-  if (!actx) return;
-  if (actx.state === 'suspended') actx.resume();
-  const t0 = actx.currentTime + 0.05;
+// 螢幕關掉後網頁會暫停，計時程式不會跑；但 iPhone 會繼續播放「媒體聲音」。
+// 所以按下按鈕時就播放一段「先安靜 N 秒、最後叮三聲」的音檔，交給系統播到最後。
+const timer = { end: 0, total: 0, h: null, done: false };
+const player = new Audio();
+player.preload = 'auto';
+const RATE = 11025;
+function makeWav(sec) {
+  const tail = 3, n = Math.round((sec + tail) * RATE);
+  const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
+  const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, n * 2, true);
   // 叮、叮、叮：三聲鈴聲，每聲疊兩個頻率聽起來比較像鈴
-  for (let k = 0; k < 3; k++) {
-    for (const [f, g] of [[1318.5, 0.5], [2637, 0.15]]) {
-      const o = actx.createOscillator(), v = actx.createGain(), t = t0 + k * 0.45;
-      o.type = 'sine'; o.frequency.value = f;
-      v.gain.setValueAtTime(0, t); v.gain.linearRampToValueAtTime(g, t + 0.01);
-      v.gain.exponentialRampToValueAtTime(0.001, t + 1.2);
-      o.connect(v); v.connect(actx.destination); o.start(t); o.stop(t + 1.25);
+  const start = Math.round(sec * RATE);
+  for (let i = start; i < n; i++) {
+    const t = (i - start) / RATE; let x = 0;
+    for (let k = 0; k < 3; k++) {
+      const u = t - k * 0.45; if (u < 0) continue;
+      const env = Math.min(1, u / 0.01) * Math.exp(-u * 4);
+      x += env * (0.5 * Math.sin(2 * Math.PI * 1318.5 * u) + 0.15 * Math.sin(2 * Math.PI * 2637 * u));
     }
+    v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x * 0.8)) * 32767, true);
   }
-  if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
 }
-async function keepAwake(on) {
+const wavCache = {};
+function playFor(sec) {
   try {
-    if (on && 'wakeLock' in navigator && !timer.wake) {
-      timer.wake = await navigator.wakeLock.request('screen');
-      timer.wake.addEventListener('release', () => { timer.wake = null; });
-    } else if (!on && timer.wake) { await timer.wake.release(); timer.wake = null; }
+    // 播放類型的聲音：靜音模式也會響、鎖螢幕後也繼續播
+    if (navigator.audioSession) navigator.audioSession.type = 'playback';
+    if (!wavCache[sec]) wavCache[sec] = makeWav(sec);
+    player.src = wavCache[sec];
+    player.currentTime = 0;
+    const p = player.play();
+    if (p) p.catch(() => toast('無法播放聲音，請再按一次'));
+    if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: `組間休息 ${mmss(sec)}`, artist: '重訓紀錄' });
   } catch (e) {}
 }
 const mmss = (sec) => `${Math.floor(sec / 60)}:${pad(sec % 60)}`;
@@ -419,34 +422,30 @@ function tick() {
     timer.done = true; clearInterval(timer.h);
     $('#timerCard').classList.add('done');
     $('#timerAdd').hidden = true; $('#timerStop').textContent = '好，做下一組';
-    ding(); keepAwake(false);
   }
 }
 function startTimer(sec) {
-  unlockAudio();
+  playFor(sec);
   clearInterval(timer.h);
   Object.assign(timer, { end: Date.now() + sec * 1000, total: sec, done: false });
   $('#timerCard').classList.remove('done');
   $('#timerIdle').hidden = true; $('#timerRun').hidden = false;
   $('#timerAdd').hidden = false; $('#timerStop').textContent = '停止';
   tick(); timer.h = setInterval(tick, 250);
-  keepAwake(true);
 }
 function stopTimer() {
-  clearInterval(timer.h); timer.end = 0;
+  clearInterval(timer.h); timer.end = 0; player.pause();
   $('#timerCard').classList.remove('done');
   $('#timerIdle').hidden = false; $('#timerRun').hidden = true;
-  keepAwake(false);
 }
 $('#timerIdle').addEventListener('click', (e) => { const b = e.target.closest('[data-sec]'); if (b) startTimer(+b.dataset.sec); });
 $('#timerStop').addEventListener('click', stopTimer);
-$('#timerAdd').addEventListener('click', () => { unlockAudio(); timer.end += 15000; timer.total += 15; tick(); });
-document.addEventListener('visibilitychange', () => {
-  if (document.hidden || !timer.end) return;
-  // 回到畫面時：螢幕恆亮要重新申請；若期間已到時間，立刻叮
-  if (!timer.done) keepAwake(true);
+$('#timerAdd').addEventListener('click', () => {
+  timer.end += 15000; timer.total += 15;
+  playFor(Math.max(1, Math.round((timer.end - Date.now()) / 1000)));
   tick();
 });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && timer.end) tick(); });
 
 // ---------- 啟動 ----------
 resetForm();
