@@ -274,6 +274,13 @@ $('#chartYear').addEventListener('change', () => renderChart(aggregate(), $('#ch
 
 // ---------- 備份 ----------
 function renderBackup() {
+  // 診斷：資料存在哪個地方、是否受 iPhone 保護不被清除
+  const mode = matchMedia('(display-mode: standalone)').matches || navigator.standalone ? '主畫面 App' : '瀏覽器分頁';
+  const ua = /CriOS/.test(navigator.userAgent) ? 'Chrome' : /FxiOS/.test(navigator.userAgent) ? 'Firefox' : 'Safari';
+  $('#storeInfo').textContent = `開啟方式：${mode}（${ua}）`;
+  if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then((p) => {
+    $('#storeInfo').textContent += p ? '，資料已受保護' : '，資料未受保護（可能被系統清除）';
+  }).catch(() => {});
   $('#appVer').textContent = window.APP_VERSION || '';
   renderHeader();
   // 備份提醒只放在這一頁：超過 14 天沒備份就用醒目底色

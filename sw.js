@@ -1,6 +1,6 @@
 // 離線快取：改了網頁檔案後，把版本號加一，手機才會抓到新版
-const CACHE = 'workout-log-v9';
-const FILES = ['./', 'index.html', 'app.js?v=9', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
+const CACHE = 'workout-log-v10';
+const FILES = ['./', 'index.html', 'app.js?v=10', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'reload' })))).then(() => self.skipWaiting()));
