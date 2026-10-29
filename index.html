@@ -56,12 +56,14 @@ button { font: inherit; cursor: pointer; border: none; border-radius: 10px; min-
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip { background: var(--chip); color: var(--ink); border-radius: 999px; padding: 0 18px; min-height: 42px; font-size: 16px; }
 .chip.on { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.sets-head, .set-row { display: grid; grid-template-columns: 26px 1fr 1fr 1fr 40px; gap: 6px; align-items: center; }
+.sets-head, .set-row { display: grid; grid-template-columns: 18px 1fr 1fr 0.8fr 50px 26px; gap: 5px; align-items: center; }
 .sets-head { font-size: 12px; color: var(--muted); padding: 0 0 4px; }
 .sets-head span { text-align: center; }
 .set-row { margin-bottom: 6px; }
 .set-row .n { color: var(--muted); font-size: 13px; text-align: center; }
 .set-row input { text-align: center; padding: 8px 4px; font-size: 18px; }
+.set-row .plus { background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 16px; padding: 0; min-height: 44px; }
+.set-row .plus:active { background: var(--accent); color: var(--accent-ink); }
 .set-row .del { background: transparent; color: var(--muted); font-size: 22px; padding: 0; min-height: 40px; }
 .total { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; }
 .total b { font-size: 24px; font-variant-numeric: tabular-nums; }
@@ -143,7 +145,7 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
     </div>
 
     <div class="card">
-      <div class="sets-head"><span></span><span>重量 kg</span><span>次數</span><span>組數</span><span></span></div>
+      <div class="sets-head"><span></span><span>重量 kg</span><span>次數</span><span>組數</span><span></span><span></span></div>
       <div id="setRows"></div>
       <button class="btn btn-block" id="addSet">＋ 加一列</button>
       <div class="total"><span class="muted">總共</span><b><span id="liveTotal">0</span> kg</b></div>
@@ -226,13 +228,13 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 
 <script>
 // 版本號：改網頁時要和 sw.js 的 CACHE 一起改
-window.APP_VERSION = '13';
+window.APP_VERSION = '14';
 // 程式出錯時直接顯示在畫面上，方便在手機上回報
 window.addEventListener('error', function (e) {
   var d = document.getElementById('errBox');
   if (d) { d.hidden = false; d.textContent = '程式出錯：' + (e.message || e) + '（版本 ' + window.APP_VERSION + '）'; }
 });
 </script>
-<script type="module" src="app.js?v=13"></script>
+<script type="module" src="app.js?v=14"></script>
 </body>
 </html>

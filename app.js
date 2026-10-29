@@ -7,7 +7,7 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=13';
+import { firebaseConfig } from './firebase-config.js?v=14';
 
 // ---------- 資料 ----------
 const LEGACY_KEY = 'workout-log.v1';          // 改用 Firebase 前存在手機裡的資料
@@ -77,14 +77,38 @@ function renderHeader() {
 // ---------- 記錄表單 ----------
 let form = { part: null, editing: null };
 
+// 草稿：每改一個數字就存在手機裡，網頁閃退或被系統關掉，重新打開會自動還原；按「儲存」後才清掉
+const DRAFT_KEY = 'workout-log.draft';
+function saveDraft() {
+  try {
+    const sets = readSets();
+    const blank = !form.part && sets.every((x) => !x.w && !x.r && !x.s);
+    if (blank && !form.editing) return localStorage.removeItem(DRAFT_KEY);
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ date: $('#fDate').value, part: form.part, editing: form.editing, sets }));
+  } catch (e) {}
+}
+function clearDraft() { try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+function restoreDraft() {
+  let d = null;
+  try { d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null'); } catch (e) {}
+  if (!d || !Array.isArray(d.sets)) return false;
+  form = { part: d.part || null, editing: d.editing || null };
+  $('#fDate').value = d.date || today();
+  writeSets(d.sets);
+  renderPartChips();
+  $('#cancelEdit').hidden = !form.editing; $('#saveBtn').textContent = form.editing ? '儲存修改' : '儲存';
+  return true;
+}
+
 function renderPartChips() {
   $('#partChips').innerHTML = db.parts.map((p) =>
     `<button class="chip${p === form.part ? ' on' : ''}" data-part="${esc(p)}">${esc(p)}</button>`).join('');
 }
 $('#partChips').addEventListener('click', (e) => {
   const b = e.target.closest('[data-part]'); if (!b) return;
-  form.part = b.dataset.part; renderPartChips();
+  form.part = b.dataset.part; renderPartChips(); saveDraft();
 });
+$('#fDate').addEventListener('change', saveDraft);
 
 function setRowHtml(s, i) {
   const v = (x) => (x === undefined || x === null || x === '' ? '' : x);
@@ -93,6 +117,7 @@ function setRowHtml(s, i) {
     <input inputmode="decimal" data-k="w" value="${v(s.w)}" aria-label="重量">
     <input inputmode="numeric" data-k="r" value="${v(s.r)}" aria-label="次數">
     <input inputmode="numeric" data-k="s" value="${v(s.s)}" aria-label="組數">
+    <button class="plus" aria-label="組數加一">＋1</button>
     <button class="del" aria-label="刪除這列">×</button>
   </div>`;
 }
@@ -112,17 +137,27 @@ function updateTotal() {
   const sets = readSets().map((s) => ({ w: parseFloat(s.w), r: parseFloat(s.r), s: parseFloat(s.s) }));
   $('#liveTotal').textContent = fmt(vol(sets));
 }
-$('#setRows').addEventListener('input', updateTotal);
+$('#setRows').addEventListener('input', () => { updateTotal(); saveDraft(); });
 $('#setRows').addEventListener('click', (e) => {
+  const plus = e.target.closest('.plus');
+  if (plus) {
+    // 做完一組按一下：組數 +1
+    const inp = plus.closest('.set-row').querySelector('[data-k="s"]');
+    inp.value = (parseInt(inp.value, 10) || 0) + 1;
+    updateTotal(); saveDraft();
+    return;
+  }
   if (!e.target.classList.contains('del')) return;
   const sets = readSets(); const rows = [...document.querySelectorAll('#setRows .set-row')];
   sets.splice(rows.indexOf(e.target.closest('.set-row')), 1);
   writeSets(sets.length ? sets : [{}]);
+  saveDraft();
 });
 $('#addSet').addEventListener('click', () => {
   const sets = readSets();
   sets.push({});
   writeSets(sets);
+  saveDraft();
   const rows = document.querySelectorAll('#setRows .set-row');
   rows[rows.length - 1].querySelector('input').focus();
 });
@@ -136,7 +171,7 @@ function resetForm() {
   writeSets([]); renderPartChips();
   $('#cancelEdit').hidden = true; $('#saveBtn').textContent = '儲存';
 }
-$('#cancelEdit').addEventListener('click', () => { resetForm(); go('history'); });
+$('#cancelEdit').addEventListener('click', () => { resetForm(); clearDraft(); go('history'); });
 
 $('#saveBtn').addEventListener('click', () => {
   const date = $('#fDate').value;
@@ -146,9 +181,8 @@ $('#saveBtn').addEventListener('click', () => {
     .filter((s) => s.w !== '' || s.r !== '' || s.s !== '')
     .map((s) => ({ w: parseFloat(s.w) || 0, r: parseFloat(s.r) || 0, s: parseFloat(s.s) || 1 }));
   if (!sets.length || vol(sets) === 0) return toast('請填重量、次數、組數');
-  let e;
-  if (form.editing) {
-    e = db.entries.find((x) => x.id === form.editing);
+  let e = form.editing && db.entries.find((x) => x.id === form.editing);
+  if (e) {
     Object.assign(e, { date, part: form.part, sets });
   } else {
     e = { id: uid(), t: Date.now(), date, part: form.part, sets };
@@ -157,7 +191,7 @@ $('#saveBtn').addEventListener('click', () => {
   putEntry(e);
   const wasEditing = !!form.editing;
   toast(`已儲存 ${form.part} ${fmt(vol(sets))} kg`);
-  resetForm(); renderHeader();
+  resetForm(); clearDraft(); renderHeader();
   if (wasEditing) go('history');
 });
 
@@ -169,6 +203,7 @@ function editEntry(id) {
   writeSets(e.sets.map((s) => ({ ...s })));
   renderPartChips();
   $('#cancelEdit').hidden = false; $('#saveBtn').textContent = '儲存修改';
+  saveDraft();
   go('log');
 }
 
@@ -438,7 +473,12 @@ onAuthStateChanged(auth, (user) => {
   migrateChecked = false; syncText = '';
   $('#login').hidden = !!user;
   for (const id of ['#appHeader', '#appMain', '#appNav']) $(id).hidden = !user;
-  if (user) { $('#who').textContent = user.email; resetForm(); rerender(); listen(); }
+  if (user) {
+    $('#who').textContent = user.email;
+    resetForm();
+    if (restoreDraft()) toast('已還原上次還沒儲存的內容');
+    rerender(); listen();
+  }
 });
 $('#login').addEventListener('submit', async (e) => {
   e.preventDefault();
