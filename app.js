@@ -7,7 +7,7 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=11';
+import { firebaseConfig } from './firebase-config.js?v=12';
 
 // ---------- 資料 ----------
 const LEGACY_KEY = 'workout-log.v1';          // 改用 Firebase 前存在手機裡的資料
@@ -386,76 +386,6 @@ $('#wipeAll').addEventListener('click', () => {
   if (prompt('請輸入「清除」兩個字確認') !== '清除') return;
   batchWrite(db.entries.map((e) => ['del', e.id])); db.entries = []; renderBackup(); toast('已清除');
 });
-
-// ---------- 組間休息倒數 ----------
-// 螢幕關掉後網頁會暫停，計時程式不會跑；但 iPhone 會繼續播放「媒體聲音」。
-// 所以按下按鈕時就播放一段「先安靜 N 秒、最後叮三聲」的音檔，交給系統播到最後。
-const timer = { end: 0, total: 0, h: null };
-const player = new Audio();
-player.preload = 'auto';
-const RATE = 11025;
-function makeWav(sec) {
-  const tail = 3, n = Math.round((sec + tail) * RATE);
-  const buf = new ArrayBuffer(44 + n * 2), v = new DataView(buf);
-  const str = (o, t) => { for (let i = 0; i < t.length; i++) v.setUint8(o + i, t.charCodeAt(i)); };
-  str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
-  v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-  v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-  str(36, 'data'); v.setUint32(40, n * 2, true);
-  // 叮、叮、叮：三聲鈴聲，每聲疊兩個頻率聽起來比較像鈴
-  const start = Math.round(sec * RATE);
-  for (let i = start; i < n; i++) {
-    const t = (i - start) / RATE; let x = 0;
-    for (let k = 0; k < 3; k++) {
-      const u = t - k * 0.45; if (u < 0) continue;
-      const env = Math.min(1, u / 0.01) * Math.exp(-u * 4);
-      x += env * (0.5 * Math.sin(2 * Math.PI * 1318.5 * u) + 0.15 * Math.sin(2 * Math.PI * 2637 * u));
-    }
-    v.setInt16(44 + i * 2, Math.max(-1, Math.min(1, x * 0.8)) * 32767, true);
-  }
-  return URL.createObjectURL(new Blob([buf], { type: 'audio/wav' }));
-}
-const wavCache = {};
-function playFor(sec) {
-  try {
-    // 播放類型的聲音：靜音模式也會響、鎖螢幕後也繼續播
-    if (navigator.audioSession) navigator.audioSession.type = 'playback';
-    if (!wavCache[sec]) wavCache[sec] = makeWav(sec);
-    player.src = wavCache[sec];
-    player.currentTime = 0;
-    const p = player.play();
-    if (p) p.catch(() => toast('無法播放聲音，請再按一次'));
-    if ('mediaSession' in navigator) navigator.mediaSession.metadata = new MediaMetadata({ title: `組間休息 ${mmss(sec)}`, artist: '重訓紀錄' });
-  } catch (e) {}
-}
-const mmss = (sec) => `${Math.floor(sec / 60)}:${pad(sec % 60)}`;
-function tick() {
-  const left = Math.max(0, Math.ceil((timer.end - Date.now()) / 1000));
-  // 時間到就回到兩個按鈕；叮聲由音檔自己播完，這裡不能停掉它
-  if (!left) return resetTimerUI();
-  $('#timerLeft').textContent = mmss(left);
-  $('#timerBar').style.width = (left / timer.total) * 100 + '%';
-}
-function startTimer(sec) {
-  clearInterval(timer.h);
-  Object.assign(timer, { end: Date.now() + sec * 1000, total: sec });
-  $('#timerIdle').hidden = true; $('#timerRun').hidden = false;
-  tick(); timer.h = setInterval(tick, 250);
-  playFor(sec); // 先顯示倒數，聲音就算失敗也不影響倒數
-}
-function resetTimerUI() {
-  clearInterval(timer.h); timer.end = 0;
-  $('#timerIdle').hidden = false; $('#timerRun').hidden = true;
-}
-function stopTimer() { resetTimerUI(); player.pause(); }
-$('#timerIdle').addEventListener('click', (e) => { const b = e.target.closest('[data-sec]'); if (b) startTimer(+b.dataset.sec); });
-$('#timerStop').addEventListener('click', stopTimer);
-$('#timerAdd').addEventListener('click', () => {
-  timer.end += 15000; timer.total += 15;
-  playFor(Math.max(1, Math.round((timer.end - Date.now()) / 1000)));
-  tick();
-});
-document.addEventListener('visibilitychange', () => { if (!document.hidden && timer.end) tick(); });
 
 // ---------- Firebase 同步 ----------
 function rerender() {
