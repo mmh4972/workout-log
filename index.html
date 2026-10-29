@@ -226,13 +226,13 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 
 <script>
 // 版本號：改網頁時要和 sw.js 的 CACHE 一起改
-window.APP_VERSION = '12';
+window.APP_VERSION = '13';
 // 程式出錯時直接顯示在畫面上，方便在手機上回報
 window.addEventListener('error', function (e) {
   var d = document.getElementById('errBox');
   if (d) { d.hidden = false; d.textContent = '程式出錯：' + (e.message || e) + '（版本 ' + window.APP_VERSION + '）'; }
 });
 </script>
-<script type="module" src="app.js?v=12"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>

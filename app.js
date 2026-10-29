@@ -7,7 +7,7 @@ import {
   initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
   collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js?v=12';
+import { firebaseConfig } from './firebase-config.js?v=13';
 
 // ---------- 資料 ----------
 const LEGACY_KEY = 'workout-log.v1';          // 改用 Firebase 前存在手機裡的資料
@@ -120,9 +120,8 @@ $('#setRows').addEventListener('click', (e) => {
   writeSets(sets.length ? sets : [{}]);
 });
 $('#addSet').addEventListener('click', () => {
-  const sets = readSets(); const last = sets[sets.length - 1] || {};
-  // 新的一列沿用上一列的次數與組數，通常只需改重量
-  sets.push({ w: '', r: last.r || '', s: last.s || '' });
+  const sets = readSets();
+  sets.push({});
   writeSets(sets);
   const rows = document.querySelectorAll('#setRows .set-row');
   rows[rows.length - 1].querySelector('input').focus();
