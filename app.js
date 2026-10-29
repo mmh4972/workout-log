@@ -1,23 +1,43 @@
 'use strict';
+// 重訓紀錄：資料存在 Firebase Firestore（和洗腎叫車月曆同一個專案，放在 workout 區塊）
+// 沒網路時先存在手機，連上網路後自動上傳
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
+import {
+  initializeFirestore, persistentLocalCache, persistentMultipleTabManager,
+  collection, doc, onSnapshot, setDoc, deleteDoc, writeBatch,
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+import { firebaseConfig } from './firebase-config.js?v=11';
 
 // ---------- 資料 ----------
-const KEY = 'workout-log.v1';
+const LEGACY_KEY = 'workout-log.v1';          // 改用 Firebase 前存在手機裡的資料
+const MIGRATED_KEY = 'workout-log.migrated';  // 已經把手機裡的資料搬上 Firebase
 const DEFAULT_PARTS = ['胸', '背', '肩', '腿', '二頭'];
 const TITLES = { log: '記錄', history: '歷史', stats: '統計', backup: '備份' };
 
-function load() {
-  try {
-    const d = JSON.parse(localStorage.getItem(KEY));
-    if (d && Array.isArray(d.entries)) return Object.assign({ parts: DEFAULT_PARTS.slice(), lastBackup: null }, d);
-  } catch (e) {}
-  return { entries: [], parts: DEFAULT_PARTS.slice(), lastBackup: null };
+let db = { entries: [], parts: DEFAULT_PARTS.slice(), lastBackup: null };
+let fs = null, unsubs = [], syncText = '';
+const metaRef = () => doc(fs, 'workout', 'main');
+const entryRef = (id) => doc(fs, 'workout', 'main', 'entries', id);
+const cleanEntry = (e) => ({
+  t: e.t || 0, date: e.date, part: e.part, note: e.note || '',
+  sets: e.sets.map((s) => ({ w: +s.w || 0, r: +s.r || 0, s: +s.s || 0 })),
+});
+function writeError(e) { setSync('儲存失敗（' + (e.code || e.message) + '）'); toast('儲存失敗，請確認有登入'); }
+function putEntry(e) { setDoc(entryRef(e.id), cleanEntry(e)).catch(writeError); }
+function delEntry(id) { deleteDoc(entryRef(id)).catch(writeError); }
+function saveMeta() { setDoc(metaRef(), { parts: db.parts, lastBackup: db.lastBackup || null }, { merge: true }).catch(writeError); }
+// 一次寫很多筆（匯入、清除），每批最多 400 筆
+function batchWrite(ops) {
+  for (let i = 0; i < ops.length; i += 400) {
+    const b = writeBatch(fs);
+    for (const [kind, id, e] of ops.slice(i, i + 400)) {
+      if (kind === 'set') b.set(entryRef(id), cleanEntry(e)); else b.delete(entryRef(id));
+    }
+    b.commit().catch(writeError);
+  }
 }
-let db = load();
-function persist() {
-  try { localStorage.setItem(KEY, JSON.stringify(db)); return true; }
-  catch (e) { alert('儲存失敗：' + e.message); return false; }
-}
-if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+function setSync(t) { syncText = t; renderHeader(); }
 
 const $ = (s) => document.querySelector(s);
 const vol = (sets) => sets.reduce((t, s) => t + (+s.w || 0) * (+s.r || 0) * (+s.s || 0), 0);
@@ -51,7 +71,7 @@ function go(name) {
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-go]'); if (b) go(b.dataset.go); });
 
 function renderHeader() {
-  $('#headSub').textContent = `共 ${db.entries.length} 筆`;
+  $('#headSub').textContent = `共 ${db.entries.length} 筆` + (syncText ? ` · ${syncText}` : '');
 }
 
 // ---------- 記錄表單 ----------
@@ -127,13 +147,15 @@ $('#saveBtn').addEventListener('click', () => {
     .filter((s) => s.w !== '' || s.r !== '' || s.s !== '')
     .map((s) => ({ w: parseFloat(s.w) || 0, r: parseFloat(s.r) || 0, s: parseFloat(s.s) || 1 }));
   if (!sets.length || vol(sets) === 0) return toast('請填重量、次數、組數');
+  let e;
   if (form.editing) {
-    const e = db.entries.find((x) => x.id === form.editing);
+    e = db.entries.find((x) => x.id === form.editing);
     Object.assign(e, { date, part: form.part, sets });
   } else {
-    db.entries.push({ id: uid(), t: Date.now(), date, part: form.part, sets });
+    e = { id: uid(), t: Date.now(), date, part: form.part, sets };
+    db.entries.push(e);
   }
-  if (!persist()) return;
+  putEntry(e);
   const wasEditing = !!form.editing;
   toast(`已儲存 ${form.part} ${fmt(vol(sets))} kg`);
   resetForm(); renderHeader();
@@ -143,7 +165,7 @@ $('#saveBtn').addEventListener('click', () => {
 function editEntry(id) {
   const e = db.entries.find((x) => x.id === id); if (!e) return;
   form = { part: e.part, editing: id };
-  if (!db.parts.includes(e.part)) { db.parts.push(e.part); persist(); }
+  if (!db.parts.includes(e.part)) { db.parts.push(e.part); saveMeta(); }
   $('#fDate').value = e.date;
   writeSets(e.sets.map((s) => ({ ...s })));
   renderPartChips();
@@ -196,7 +218,7 @@ $('#histList').addEventListener('click', (ev) => {
   }
   if (act.dataset.act === 'edit') editEntry(id);
   else if (confirm('確定刪除這筆紀錄？')) {
-    db.entries = db.entries.filter((x) => x.id !== id); persist(); renderHistory(); renderHeader(); toast('已刪除');
+    db.entries = db.entries.filter((x) => x.id !== id); delEntry(id); renderHistory(); renderHeader(); toast('已刪除');
   }
 });
 
@@ -274,13 +296,6 @@ $('#chartYear').addEventListener('change', () => renderChart(aggregate(), $('#ch
 
 // ---------- 備份 ----------
 function renderBackup() {
-  // 診斷：資料存在哪個地方、是否受 iPhone 保護不被清除
-  const mode = matchMedia('(display-mode: standalone)').matches || navigator.standalone ? '主畫面 App' : '瀏覽器分頁';
-  const ua = /CriOS/.test(navigator.userAgent) ? 'Chrome' : /FxiOS/.test(navigator.userAgent) ? 'Firefox' : 'Safari';
-  $('#storeInfo').textContent = `開啟方式：${mode}（${ua}）`;
-  if (navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then((p) => {
-    $('#storeInfo').textContent += p ? '，資料已受保護' : '，資料未受保護（可能被系統清除）';
-  }).catch(() => {});
   $('#appVer').textContent = window.APP_VERSION || '';
   renderHeader();
   // 備份提醒只放在這一頁：超過 14 天沒備份就用醒目底色
@@ -313,7 +328,7 @@ async function saveFile(name, text, type) {
 const stamp = () => today().replace(/-/g, '');
 $('#exportJson').addEventListener('click', async () => {
   const ok = await saveFile(`重訓備份-${stamp()}.json`, JSON.stringify({ app: 'workout-log', version: 1, exported: new Date().toISOString(), parts: db.parts, entries: db.entries }), 'application/json');
-  if (ok) { db.lastBackup = Date.now(); persist(); renderBackup(); toast('已匯出備份'); }
+  if (ok) { db.lastBackup = Date.now(); saveMeta(); renderBackup(); toast('已匯出備份'); }
 });
 $('#exportCsv').addEventListener('click', () => {
   const max = Math.max(1, ...db.entries.map((e) => e.sets.length));
@@ -337,30 +352,39 @@ $('#importFile').addEventListener('change', async (ev) => {
   let data;
   try { data = JSON.parse(await f.text()); } catch (e) { return alert('這不是有效的備份檔'); }
   if (!data || !Array.isArray(data.entries)) return alert('這不是重訓紀錄的備份檔');
-  const have = new Set(db.entries.map((e) => e.id));
-  let added = 0;
-  for (const e of data.entries) {
-    if (!e || !e.id || !e.date || !e.part || !Array.isArray(e.sets) || have.has(e.id)) continue;
-    db.entries.push({ id: e.id, t: e.t, date: e.date, part: e.part, sets: e.sets.map((s) => ({ w: +s.w || 0, r: +s.r || 0, s: +s.s || 0 })), note: e.note || '' });
-    have.add(e.id); added++;
-    if (!db.parts.includes(e.part)) db.parts.push(e.part);
-  }
-  if (persist()) { renderBackup(); renderPartChips(); alert(`匯入完成：新增 ${added} 筆，略過 ${data.entries.length - added} 筆重複。`); }
+  const added = mergeEntries(data.entries);
+  renderBackup(); renderPartChips();
+  alert(`匯入完成：新增 ${added} 筆，略過 ${data.entries.length - added} 筆重複。`);
 });
+// 把備份檔（或手機裡的舊資料）中還沒有的紀錄加進 Firebase；用 id 判斷，重複匯入不會變兩筆
+function mergeEntries(list) {
+  const have = new Set(db.entries.map((e) => e.id));
+  const ops = [];
+  let partsChanged = false;
+  for (const e of list) {
+    if (!e || !e.id || !e.date || !e.part || !Array.isArray(e.sets) || have.has(e.id)) continue;
+    const c = { id: e.id, ...cleanEntry(e) };
+    db.entries.push(c); ops.push(['set', c.id, c]); have.add(c.id);
+    if (!db.parts.includes(c.part)) { db.parts.push(c.part); partsChanged = true; }
+  }
+  if (ops.length) batchWrite(ops);
+  if (partsChanged) saveMeta();
+  return ops.length;
+}
 $('#addPart').addEventListener('click', () => {
   const p = $('#newPart').value.trim();
   if (!p || db.parts.includes(p)) return;
-  db.parts.push(p); persist(); $('#newPart').value = ''; renderBackup(); renderPartChips();
+  db.parts.push(p); saveMeta(); $('#newPart').value = ''; renderBackup(); renderPartChips();
 });
 $('#partManage').addEventListener('click', (e) => {
   const b = e.target.closest('[data-rm]'); if (!b) return;
   if (!confirm(`從部位按鈕移除「${b.dataset.rm}」？（舊紀錄不受影響）`)) return;
-  db.parts = db.parts.filter((p) => p !== b.dataset.rm); persist(); renderBackup(); renderPartChips();
+  db.parts = db.parts.filter((p) => p !== b.dataset.rm); saveMeta(); renderBackup(); renderPartChips();
 });
 $('#wipeAll').addEventListener('click', () => {
   if (!confirm('確定清除所有紀錄？建議先匯出備份。')) return;
   if (prompt('請輸入「清除」兩個字確認') !== '清除') return;
-  db.entries = []; persist(); renderBackup(); toast('已清除');
+  batchWrite(db.entries.map((e) => ['del', e.id])); db.entries = []; renderBackup(); toast('已清除');
 });
 
 // ---------- 組間休息倒數 ----------
@@ -433,7 +457,79 @@ $('#timerAdd').addEventListener('click', () => {
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && timer.end) tick(); });
 
+// ---------- Firebase 同步 ----------
+function rerender() {
+  renderHeader(); renderPartChips();
+  if (tab === 'history') renderHistory();
+  if (tab === 'stats') renderStats();
+  if (tab === 'backup') renderBackup();
+}
+let migrateChecked = false;
+function migrateLegacy() {
+  // 第一次登入、確定拿到雲端資料後，把手機裡原本的紀錄搬上去（只做一次；手機裡的舊資料保留不刪）
+  if (migrateChecked) return;
+  migrateChecked = true;
+  try {
+    if (localStorage.getItem(MIGRATED_KEY)) return;
+    const old = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
+    if (old && Array.isArray(old.entries) && old.entries.length) {
+      if (Array.isArray(old.parts)) for (const p of old.parts) if (!db.parts.includes(p)) db.parts.push(p);
+      const added = mergeEntries(old.entries);
+      saveMeta();
+      if (added) toast(`已把手機裡的 ${added} 筆紀錄搬到雲端`);
+    }
+    localStorage.setItem(MIGRATED_KEY, String(Date.now()));
+  } catch (e) {}
+}
+function listen() {
+  unsubs.push(onSnapshot(collection(fs, 'workout', 'main', 'entries'), { includeMetadataChanges: true }, (snap) => {
+    db.entries = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const m = snap.metadata;
+    setSync(m.hasPendingWrites ? (navigator.onLine ? '上傳中…' : '離線，連上網路後自動上傳') : m.fromCache ? '離線' : '已同步');
+    if (!m.fromCache) migrateLegacy();
+    rerender();
+  }, (e) => setSync('讀取失敗（' + e.code + '）')));
+  unsubs.push(onSnapshot(metaRef(), (snap) => {
+    const d = snap.data();
+    if (d) {
+      if (Array.isArray(d.parts) && d.parts.length) db.parts = d.parts.slice();
+      db.lastBackup = d.lastBackup || null;
+    }
+    rerender();
+  }, () => {}));
+}
+
+// ---------- 登入 ----------
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+fs = initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+onAuthStateChanged(auth, (user) => {
+  unsubs.forEach((u) => u()); unsubs = [];
+  db = { entries: [], parts: DEFAULT_PARTS.slice(), lastBackup: null };
+  migrateChecked = false; syncText = '';
+  $('#login').hidden = !!user;
+  for (const id of ['#appHeader', '#appMain', '#appNav']) $(id).hidden = !user;
+  if (user) { $('#who').textContent = user.email; resetForm(); rerender(); listen(); }
+});
+$('#login').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#loginErr').textContent = '';
+  $('#loginBtn').disabled = true;
+  try {
+    await signInWithEmailAndPassword(auth, $('#email').value.trim(), $('#password').value);
+  } catch (err) {
+    const msg = {
+      'auth/invalid-credential': 'Email 或密碼不對',
+      'auth/invalid-email': 'Email 格式不對',
+      'auth/too-many-requests': '試太多次了，請稍後再試',
+      'auth/network-request-failed': '沒有網路，請連上網路再登入',
+    }[err.code];
+    $('#loginErr').textContent = msg || ('登入失敗（' + err.code + '）');
+  }
+  $('#loginBtn').disabled = false;
+});
+$('#logoutBtn').addEventListener('click', () => { if (confirm('確定登出？')) signOut(auth); });
+
 // ---------- 啟動 ----------
 resetForm();
-renderHeader();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});

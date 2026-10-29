@@ -103,6 +103,10 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 .timer-left { font-size: 56px; font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .timer-bar { height: 6px; background: var(--chip); border-radius: 3px; overflow: hidden; margin: 8px 0 12px; }
 .timer-bar i { display: block; height: 100%; background: var(--accent); width: 100%; transition: width .25s linear; }
+#login { display: flex; flex-direction: column; gap: 10px; max-width: 360px; margin: 60px auto; padding: 0 16px; }
+#login h1 { font-size: 24px; margin: 0 0 6px; text-align: center; }
+#login p { margin: 0 0 6px; text-align: center; }
+#loginErr { color: var(--danger); font-size: 14px; min-height: 1.4em; }
 #toast {
   position: fixed; left: 50%; bottom: calc(80px + env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px);
   background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 999px; opacity: 0; transition: .25s; pointer-events: none; z-index: 20; font-size: 15px; white-space: nowrap;
@@ -115,11 +119,19 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 </style>
 </head>
 <body>
-<header>
+<form id="login" hidden>
+  <h1>重訓紀錄</h1>
+  <p class="small muted">用洗腎叫車月曆同一組帳號密碼登入</p>
+  <input id="email" type="email" autocomplete="username" placeholder="Email" required>
+  <input id="password" type="password" autocomplete="current-password" placeholder="密碼" required>
+  <button type="submit" class="btn-primary" id="loginBtn">登入</button>
+  <div id="loginErr"></div>
+</form>
+<header id="appHeader" hidden>
   <h1 id="title">記錄</h1>
   <span class="sub" id="headSub"></span>
 </header>
-<main>
+<main id="appMain" hidden>
   <div id="errBox" class="banner" hidden style="background:var(--danger);color:#fff"></div>
 
   <!-- 記錄 -->
@@ -219,13 +231,14 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
       <b>資料</b>
       <p class="small muted" style="margin:0" id="dataInfo"></p>
       <p class="small muted" style="margin:0">網頁版本：<span id="appVer"></span></p>
-      <p class="small muted" style="margin:0" id="storeInfo"></p>
+      <p class="small muted" style="margin:0">紀錄存在 Firebase 雲端，登入帳號：<span id="who"></span></p>
+      <button class="btn btn-block" id="logoutBtn">登出</button>
       <button class="btn-danger btn-block" id="wipeAll">清除這支手機上的所有紀錄</button>
     </div>
   </section>
 </main>
 
-<nav class="tabs">
+<nav class="tabs" id="appNav" hidden>
   <button data-go="log" class="on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>記錄</button>
   <button data-go="history"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>歷史</button>
   <button data-go="stats"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 20V11M12 20V4M19 20v-6"/></svg>統計</button>
@@ -235,13 +248,13 @@ nav.tabs button.on { color: var(--accent); font-weight: 600; }
 
 <script>
 // 版本號：改網頁時要和 sw.js 的 CACHE 一起改
-window.APP_VERSION = '10';
+window.APP_VERSION = '11';
 // 程式出錯時直接顯示在畫面上，方便在手機上回報
 window.addEventListener('error', function (e) {
   var d = document.getElementById('errBox');
   if (d) { d.hidden = false; d.textContent = '程式出錯：' + (e.message || e) + '（版本 ' + window.APP_VERSION + '）'; }
 });
 </script>
-<script src="app.js?v=10"></script>
+<script type="module" src="app.js?v=11"></script>
 </body>
 </html>
